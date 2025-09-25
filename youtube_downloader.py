@@ -8,7 +8,7 @@ class YouTubeDownloaderApp:
     def __init__(self, root):
         self.root = root
         self.root.title("YouTube Downloader")
-        self.root.geometry("520x650")
+        self.root.geometry("620x630")
         self.root.resizable(False, False)
         
         self.qualities = {
@@ -36,20 +36,16 @@ class YouTubeDownloaderApp:
         self.setup_ui()
         
     def setup_ui(self):
-        # Frame principal
-        main_frame = ttk.Frame(self.root, padding="20")
+        main_frame = ttk.Frame(self.root, padding="70")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Título
         ttk.Label(main_frame, text="YouTube Downloader", 
                  font=('Helvetica', 16, 'bold')).grid(row=0, column=0, columnspan=3, pady=10)
         
-        # Campo para o URL
         ttk.Label(main_frame, text="URL do vídeo:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.url_entry = ttk.Entry(main_frame, width=50)
         self.url_entry.grid(row=1, column=1, columnspan=2, pady=5, padx=5, sticky=tk.W)
         
-        # Seleção de tipo
         ttk.Label(main_frame, text="Tipo de mídia:").grid(row=2, column=0, sticky=tk.W, pady=5)
         
         self.media_type = tk.StringVar(value="mp4")
@@ -60,38 +56,50 @@ class YouTubeDownloaderApp:
         ttk.Radiobutton(main_frame, text="MP3", variable=self.media_type, 
                        value="mp3", command=self.update_quality_options).grid(row=3, column=1, sticky=tk.W)
         
-        # Seleção de qualidade
         ttk.Label(main_frame, text="Qualidade:").grid(row=4, column=0, sticky=tk.W, pady=5)
         self.quality_combo = ttk.Combobox(main_frame, state="readonly", width=15)
         self.quality_combo.grid(row=4, column=1, sticky=tk.W, padx=5)
-        self.update_quality_options()
+          
+        self.subtitle_frame = ttk.Frame(main_frame)
+        self.subtitle_frame.grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=5)
         
-        # Seleção de pasta
-        ttk.Label(main_frame, text="Pasta de destino:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        ttk.Label(self.subtitle_frame, text="Idioma da legenda (ex: pt-BR, en, es):").grid(row=0, column=0, sticky=tk.W)
+        self.subtitle_lang_entry = ttk.Entry(self.subtitle_frame, width=15)
+        self.subtitle_lang_entry.insert(0, "pt-BR")
+        self.subtitle_lang_entry.grid(row=0, column=1, sticky=tk.W, padx=5)
+        
+        ttk.Label(main_frame, text="Pasta de destino:").grid(row=6, column=0, sticky=tk.W, pady=5)
         self.folder_path = tk.StringVar(value=os.path.join(os.path.expanduser('~'), 'Downloads'))
         ttk.Entry(main_frame, textvariable=self.folder_path, width=40, state='readonly').grid(
-            row=5, column=1, pady=5, padx=5, sticky=tk.W)
-        ttk.Button(main_frame, text="Selecionar", command=self.select_folder).grid(row=5, column=2, padx=5)
+            row=6, column=1, pady=5, padx=5, sticky=tk.W)
+        ttk.Button(main_frame, text="Selecionar", command=self.select_folder).grid(row=6, column=2, padx=5)
         
-        # Barra de progresso
         self.progress = ttk.Progressbar(main_frame, orient=tk.HORIZONTAL, length=450, mode='determinate')
-        self.progress.grid(row=6, column=0, columnspan=3, pady=20)
+        self.progress.grid(row=7, column=0, columnspan=3, pady=20)
         
-        # Botão de download
-        ttk.Button(main_frame, text="Baixar", command=self.start_download).grid(row=7, column=0, columnspan=3, pady=10)
+        ttk.Button(main_frame, text="Baixar", command=self.start_download).grid(row=8, column=0, columnspan=3, pady=10)
         
-        # Status
-        self.status_var = tk.StringVar(value="Pronto")
-        ttk.Label(main_frame, textvariable=self.status_var).grid(row=8, column=0, columnspan=3)
+        self.status_var = tk.StringVar(value="")
+        ttk.Label(main_frame, textvariable=self.status_var).grid(row=9, column=0, columnspan=3)
         
-        # Console de logs
         self.log_text = tk.Text(main_frame, height=6, width=60, state='disabled')
-        self.log_text.grid(row=9, column=0, columnspan=3, pady=10)
+        self.log_text.grid(row=10, column=0, columnspan=3, pady=10)
+        
+        
+        self.update_quality_options()
     
     def update_quality_options(self):
         media_type = self.media_type.get()
         self.quality_combo['values'] = list(self.qualities[media_type].keys())
         self.quality_combo.current(0)
+        
+        
+        if media_type == 'mp3':
+            
+            self.subtitle_frame.grid_remove()  
+        else:
+            
+            self.subtitle_frame.grid()  
     
     def select_folder(self):
         folder_selected = filedialog.askdirectory()
@@ -109,7 +117,6 @@ class YouTubeDownloaderApp:
         if d['status'] == 'downloading':
             percent_str = re.sub(r'\x1b\[[0-9;]*[mK]', '', d.get('_percent_str', '0%'))
             speed_str = re.sub(r'\x1b\[[0-9;]*[mK]', '', d.get('_speed_str', ''))
-            
             try:
                 percent = float(percent_str.strip().rstrip('%'))
                 self.progress['value'] = percent
@@ -118,9 +125,7 @@ class YouTubeDownloaderApp:
             except ValueError:
                 self.progress['value'] = 50
                 self.status_var.set("Baixando...")
-                
             self.root.update_idletasks()
-            
         elif d['status'] == 'finished':
             self.status_var.set("✅ Download concluído!")
             self.progress['value'] = 100
@@ -132,10 +137,14 @@ class YouTubeDownloaderApp:
         quality = self.quality_combo.get()
         output_path = self.folder_path.get()
         
+        
+        subtitle_lang = ""
+        if media_type in ['mp4', 'mkv']:
+            subtitle_lang = self.subtitle_lang_entry.get().strip()
+        
         if not url or not any(domain in url for domain in ['youtube.com', 'youtu.be']):
             messagebox.showerror("Erro", "Por favor, insira um URL válido do YouTube")
             return
-        
         if not os.path.exists(output_path):
             messagebox.showerror("Erro", "Pasta de destino não existe")
             return
@@ -144,7 +153,7 @@ class YouTubeDownloaderApp:
             self.progress['value'] = 0
             self.status_var.set("Iniciando download...")
             self.log_message(f"Iniciando download: {url}")
-            self.log_message(f"Tipo: {media_type.upper()} | Qualidade: {quality}")
+            self.log_message(f"Tipo: {media_type.upper()} | Qualidade: {quality} | Legenda: {subtitle_lang or 'nenhuma'}")
             self.root.update_idletasks()
             
             ydl_opts = {
@@ -160,15 +169,31 @@ class YouTubeDownloaderApp:
                 'skip_unavailable_fragments': True
             }
             
+            
+            if media_type in ['mp4', 'mkv'] and subtitle_lang:
+                ydl_opts.update({
+                    'writesubtitles': True,
+                    'writeautomaticsub': True,
+                    'subtitleslangs': [subtitle_lang],
+                    'subtitlesformat': 'best',
+                    'embedsubtitles': True,
+                })
+            else:
+                ydl_opts.update({
+                    'writesubtitles': False,
+                    'writeautomaticsub': False,
+                })
+            
             if media_type in ['mp4', 'mkv']:
                 ydl_opts['format'] = self.qualities[media_type][quality]
                 ydl_opts['merge_output_format'] = media_type
-            else:  # mp3
+                ydl_opts['postprocessors'] = [{'key': 'FFmpegMerger'}]
+            else:  
                 ydl_opts['format'] = self.qualities[media_type][quality]
                 ydl_opts['postprocessors'] = [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
-                    'preferredquality': quality[:-4],  # Remove 'kbps'
+                    'preferredquality': quality[:-4],
                 }]
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -189,7 +214,7 @@ class YouTubeDownloaderApp:
                 except yt_dlp.utils.DownloadError as e:
                     if "Requested format is not available" in str(e):
                         messagebox.showwarning("Aviso", "Qualidade solicitada não disponível. Tentando qualidade alternativa...")
-                        self.fallback_quality_download(url, media_type, output_path)
+                        self.fallback_quality_download(url, media_type, output_path, subtitle_lang)
                     else:
                         raise
                         
@@ -201,8 +226,7 @@ class YouTubeDownloaderApp:
         finally:
             self.root.update_idletasks()
     
-    def fallback_quality_download(self, url, media_type, output_path):
-        """Tenta baixar com qualidades alternativas quando a selecionada não está disponível"""
+    def fallback_quality_download(self, url, media_type, output_path, subtitle_lang):
         qualities = list(self.qualities[media_type].keys())
         current_quality = self.quality_combo.get()
         current_index = qualities.index(current_quality)
@@ -222,7 +246,24 @@ class YouTubeDownloaderApp:
                     'ignoreerrors': True
                 }
                 
-                if media_type == 'mp3':
+                
+                if media_type in ['mp4', 'mkv'] and subtitle_lang:
+                    ydl_opts.update({
+                        'writesubtitles': True,
+                        'writeautomaticsub': True,
+                        'subtitleslangs': [subtitle_lang],
+                        'subtitlesformat': 'best',
+                        'embedsubtitles': True,
+                    })
+                else:
+                    ydl_opts.update({
+                        'writesubtitles': False,
+                        'writeautomaticsub': False,
+                    })
+                
+                if media_type in ['mp4', 'mkv']:
+                    ydl_opts['postprocessors'] = [{'key': 'FFmpegMerger'}]
+                elif media_type == 'mp3':
                     ydl_opts['postprocessors'] = [{
                         'key': 'FFmpegExtractAudio',
                         'preferredcodec': 'mp3',
@@ -243,7 +284,6 @@ class YouTubeDownloaderApp:
         messagebox.showerror("Erro", "Não foi possível baixar em nenhuma qualidade disponível")
     
     def format_duration(self, seconds):
-        """Formata a duração em segundos para HH:MM:SS"""
         if not seconds:
             return "Desconhecido"
         minutes, seconds = divmod(seconds, 60)
